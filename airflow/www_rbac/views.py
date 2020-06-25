@@ -2778,8 +2778,14 @@ class TrainedModelsView(FileUploadBaseView):
 
         # save the chunk using its index
         # TODO: check if lock is required here.
-        with open(os.path.join(temp_save_path, str(current_chunk)), 'wb') as f:
-            f.write(file.stream.read())
+		
+        lock_path = os.path.join(temp_save_path, str(current_chunk)) + '.lock'
+        lock = FileLock(lock_path)
+        lock.timeout = -1
+        with lock:
+            with open(os.path.join(temp_save_path, str(current_chunk)), 'wb') as f:
+                f.write(file.stream.read())
+        os.remove(lock_path)
 
         return make_response(('Chunk {} saved.'.format(current_chunk), 200))
 
@@ -2831,8 +2837,14 @@ class TrainedModelsView(FileUploadBaseView):
 
     def set_config(self, config, pathname):
         try:
-            with open(os.path.join(pathname, 'models.config'), 'w') as f:
-                f.write(config)
+            lock_path = os.path.join(pathname, 'models.config.lock')
+            lock = FileLock(lock_path)
+            lock.timeout = -1
+			
+            with lock:
+                with open(os.path.join(pathname, 'models.config'), 'w') as f:
+                    f.write(config)
+            os.remove(lock_path)
         except Exception as e:
             print(e)
 
@@ -2870,10 +2882,15 @@ class TrainedModelsView(FileUploadBaseView):
         # TODO: check if lock or semaphore is required here.
 
         # assuming all chunks exists:
-        with open(pathname, 'wb') as f:
-            for chunk_index in range(0, total_chunks):
-                with open(os.path.join(temp_save_path, str(chunk_index)), 'rb') as chunk:
-                    f.write(chunk.read())
+        lock_path = pathname + '.lock'
+        lock = FileLock(lock_path)
+        lock.timeout = -1
+        with lock:
+            with open(pathname, 'wb') as f:
+                for chunk_index in range(0, total_chunks):
+                    with open(os.path.join(temp_save_path, str(chunk_index)), 'rb') as chunk:
+                        f.write(chunk.read())
+        os.remove(lock_path)
 
         # delete the temp files
         shutil.rmtree(temp_save_path)
@@ -2916,8 +2933,13 @@ class TrainedModelsView(FileUploadBaseView):
         arcname = pathname.split('/')[-1]
         if os.path.isdir(file_path):
             f = tempfile.SpooledTemporaryFile(suffix='.tar.gz')
-            with tarfile.open(fileobj=f, mode='w:gz') as tar:
-                tar.add(file_path, arcname=arcname)
+            lock_path = f + '.lock'
+            lock = FileLock(lock_path)
+            lock.timeout = -1			
+            with lock:
+                with tarfile.open(fileobj=f, mode='w:gz') as tar:
+                    tar.add(file_path, arcname=arcname)
+            os.remove(lock_path)
 
             f.flush()
             f.seek(0)
@@ -3172,14 +3194,20 @@ class ExportConfigsView(AirflowBaseView, BaseApi):
         f = tempfile.SpooledTemporaryFile(suffix='.tar.gz')
         airflow_home_parent = os.path.normpath(os.path.join(AIRFLOW_HOME, os.pardir))
         root_dir = Path(name)
-        with tarfile.open(fileobj=f, mode='w:gz') as tar:
-            for path in export_paths:
-                try:
-                    tar.add(path,
-                            arcname=str(root_dir.joinpath(Path(path).relative_to(airflow_home_parent))),
-                            filter=self.filter_files)
-                except FileNotFoundError:
-                    pass
+		 
+        lock_path = f + '.lock'
+        lock = FileLock(lock_path)
+        lock.timeout = -1
+        with lock:
+            with tarfile.open(fileobj=f, mode='w:gz') as tar:
+                for path in export_paths:
+                    try:
+                        tar.add(path,
+                                arcname=str(root_dir.joinpath(Path(path).relative_to(airflow_home_parent))),
+                                filter=self.filter_files)
+                    except FileNotFoundError:
+                        pass
+        os.remove(lock_path)
 
         f.flush()
         f.seek(0)
@@ -3421,8 +3449,15 @@ class EDAView(AirflowBaseView, BaseApi):
                                     eda_sources_enum=models.EdaSourcesEnum,
                                     folder_to_copy_sum=folder_to_copy_sum,
                                     now=now)
-        with open(os.path.join(settings.DAGS_FOLDER, eda_dag_id + '.py'), 'w') as dag_file:
-            dag_file.write(code)
+	    
+        lock_path = os.path.join(settings.DAGS_FOLDER, eda_dag_id + '.py.lock')
+        lock = FileLock(lock_path)
+        lock.timeout = -1
+		
+        with lock:
+            with open(os.path.join(settings.DAGS_FOLDER, eda_dag_id + '.py'), 'w') as dag_file:
+                dag_file.write(code)
+        os.remove(lock_path)
 
         viz_dag_id = "-".join([
             viz_dag_id_prefix,
@@ -3436,8 +3471,15 @@ class EDAView(AirflowBaseView, BaseApi):
                                     eda_dag_id=eda_dag_id,
                                     folder_to_copy_sum=folder_to_copy_sum,
                                     now=now)
-        with open(os.path.join(settings.DAGS_FOLDER, viz_dag_id + '.py'), 'w') as dag_file:
-            dag_file.write(code)
+		
+        lock_path = os.path.join(settings.DAGS_FOLDER, viz_dag_id + '.py.lock')
+        lock = FileLock(lock_path)
+        lock.timeout = -1
+		
+        with lock:
+            with open(os.path.join(settings.DAGS_FOLDER, viz_dag_id + '.py'), 'w') as dag_file:
+                dag_file.write(code)
+        os.remove(lock_path)
 
         flash_msg = '{} EDA run on Source: {} has been scheduled. '.format(eda_type, str(eda_source)) + \
             'Output will be found in "{}" directory.'.format('/'.join(output_dirs))
@@ -3925,8 +3967,16 @@ class JupyterNotebookView(GitIntegrationMixin, AirflowBaseView):
                                     dag_id=dag_id,
                                     now=now,
                                     schedule=schedule)
-        with open(os.path.join(settings.DAGS_FOLDER, dag_id + '.py'), 'w') as dag_file:
-            dag_file.write(code)
+									
+        lock_path = os.path.join(settings.DAGS_FOLDER, dag_id + '.py.lock')
+        lock = FileLock(lock_path)
+        lock.timeout = -1
+			
+        with lock:
+            with open(os.path.join(settings.DAGS_FOLDER, dag_id + '.py'), 'w') as dag_file:
+                dag_file.write(code)
+        os.remove(lock_path)
+		
         AirflowBaseView.audit_logging(
             'JupyterNoetbook.create_jupyter_dag',
             notebook,
@@ -4129,8 +4179,15 @@ class LivyConfigView(AirflowBaseView):
     def write_config(self, config, fs_path):
         # create .sparkmagic dir.
         Path(fs_path).parent.mkdir(exist_ok=True)
-        with open(fs_path, 'w') as f:
-            json.dump(config, f)
+		
+        lock_path = fs_path + '.lock'
+        lock = FileLock(lock_path)
+        lock.timeout = -1
+		
+        with lock:
+            with open(fs_path, 'w') as f:
+               json.dump(config, f)
+        os.remove(lock_path)
 
     @expose('/livy-configs/<string:group>', methods=['GET', 'POST'])
     @has_access
@@ -4247,11 +4304,23 @@ class AddDagView(AirflowBaseView):
         snippets[metadata['title']] = metadata['description']
 
         snippets_path = self.get_snippet_metadata_path()
-        with open(snippets_path, 'w') as f:
-            json.dump(snippets, f)
+		
+        lock_path = snippets_path + '.lock'
+        lock = FileLock(snippets_path)
+        lock.timeout = -1
+		
+        with lock:
+            with open(snippets_path, 'w') as f:
+                json.dump(snippets, f)
+        os.remove(lock_path)
 
-        with open(self.get_snippet_file_path(metadata['title']), 'w') as f:
-            f.write(new_snippet)
+        lock_path = self.get_snippet_file_path(metadata['title']) + '.lock'
+        lock = FileLock(lock_path)
+        lock.timeout = -1
+        with lock:
+            with open(self.get_snippet_file_path(metadata['title']), 'w') as f:
+                f.write(new_snippet)
+        os.remove(lock_path)
 
     @expose('/add_dag', methods=['GET', 'POST'])
     @action_logging
@@ -4351,7 +4420,8 @@ class AddDagView(AirflowBaseView):
                         _parse_dags(update_DagModel=True)
                         # TODO Unpause dag here.
                         # unpause_dag(dag_id)
-                return redirect(url_for('AddDagView.editdag', filename=filename))
+            os.remove(lock_path)
+            return redirect(url_for('AddDagView.editdag', filename=filename))
         else:
             if new:
                 insert_starter_content = request.args.get('insert_starter_content')
@@ -4389,8 +4459,14 @@ class AddDagView(AirflowBaseView):
             }
             new_snippet = request.form['snippet']
             self.save_snippets(metadata, new_snippet)
-            # with open(snippet_file_path, 'w') as f:
-            #     json.dump(snippets, f)
+			
+			# lock_path = snippet_file_path + '.lock'
+            # lock = FileLock(lock_path)
+            # lock.timeout = -1
+			# with lock:
+                # with open(snippet_file_path, 'w') as f:
+                #     json.dump(snippets, f)
+			# os.remove(lock_path)
 
             return redirect(url_for('AddDagView.editdag', filename=filename))
         return make_response(('METHOD_NOT_ALLOWED', 403))
