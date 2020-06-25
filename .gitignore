@@ -187,3 +187,5 @@ dmypy.json
 /.kube
 /.inputrc
 log.txt*
+
+!airflow/www_rbac/langserver/lib

@@ -160,7 +160,7 @@ def create_app(config=None, session=None, testing=False, app_name="Workflow"):
                                 category="Developer",
                                 category_icon="fa-user")
             appbuilder.add_view(views.TrainedModelsView,
-                                "Trained Models",
+                                "Models and Datasets",
                                 category="Developer",
                                 category_icon="fa-user")
             appbuilder.add_view(views.ConfigurationView,

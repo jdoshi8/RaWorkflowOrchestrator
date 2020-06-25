@@ -26,6 +26,13 @@
     "flask"
   ],
   "devDependencies": {
+    "@sourcegraph/vscode-ws-jsonrpc": "0.0.3-fork",
+    "@types/codemirror": "0.0.74",
+    "@types/expect": "^1.20.4",
+    "@types/lodash-es": "^4.17.3",
+    "@types/mocha": "^5.2.7",
+    "@types/node": "^12.0.7",
+    "@types/sinon": "^7.0.12",
     "babel": "^6.23.0",
     "babel-core": "^6.26.3",
     "babel-eslint": "^8.2.6",
@@ -52,6 +59,8 @@
     "mini-css-extract-plugin": "^0.4.1",
     "moment-locales-webpack-plugin": "^1.2.0",
     "style-loader": "^0.21.0",
+    "ts-loader": "^7.0.5",
+    "tslint": "^5.17.0",
     "url-loader": "^1.0.1",
     "webpack": "^4.16.3",
     "webpack-cli": "^3.1.0",
@@ -60,6 +69,7 @@
   "dependencies": {
     "bootstrap-3-typeahead": "^4.0.2",
     "bootstrap-toggle": "^2.2.2",
+    "codemirror": "^5.54.0",
     "d3": "^3.4.4",
     "d3-tip": "^0.9.1",
     "dagre-d3": "^0.6.4",
@@ -69,8 +79,14 @@
     "jquery": ">=3.4.0",
     "js-yaml": ">=3.13.1",
     "lodash": "^4.17.13",
+    "lodash-es": "^4.17.11",
     "moment-timezone": "^0.5.28",
     "nvd3": "^1.8.6",
-    "url-search-params-polyfill": "^6.0.0"
+    "url-search-params-polyfill": "^6.0.0",
+    "typescript": "^3.9.5",
+    "vscode-jsonrpc": "^4.0.0",
+    "vscode-languageclient": "^5.2.1",
+    "vscode-languageserver-protocol": "^3.14.1",
+    "vscode-languageserver-types": "^3.14.0"
   }
 }

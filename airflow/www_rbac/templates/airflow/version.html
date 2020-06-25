@@ -31,6 +31,8 @@
 	padding-right:15px
 }
 </style>
+
+{% if found_file==True %}
 	<h2> Version: {{changelogs['changelog'][0]['version']}} <h2>
     <h2>Changelog</h2> 
 	<div id="versionData">
@@ -61,4 +63,5 @@
 		</div>
 	{% endfor %}
 	</div>
+{% endif %}
 {% endblock %}

@@ -105,7 +105,7 @@ class AirflowSecurityManager(SecurityManager, LoggingMixin):
         'Exploratory Data Analysis',
         # 'EDAView',
 
-        'Trained Models',
+        'Models and Datasets',
     }
 
     ###########################################################################

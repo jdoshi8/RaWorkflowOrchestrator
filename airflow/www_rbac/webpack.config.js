@@ -32,7 +32,7 @@ const STATIC_DIR = path.resolve(__dirname, './static');
 // noinspection JSUnresolvedVariable
 const BUILD_DIR = path.resolve(__dirname, './static/dist');
 
-const config = {
+const www_rbac_config = {
   entry: {
     connectionForm: `${STATIC_DIR}/js/connection_form.js`,
     base: `${STATIC_DIR}/js/base.js`,
@@ -146,4 +146,39 @@ const config = {
   ],
 };
 
-module.exports = config;
+const langserver_config = {
+  mode: 'production',
+  entry: {
+    main: './langserver/ts/index.ts',
+  },
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      }, {
+        test: /\.css$/,
+        use: [
+          { loader: 'style-loader' },
+          { loader: 'css-loader' },
+        ],
+      },
+    ],
+  },
+  resolve: {
+    extensions: ['.tsx', '.ts', '.js'],
+  },
+  target: 'web',
+  node: {
+    net: 'mock',
+  },
+  output: {
+    filename: 'language_server.js',
+    path: path.resolve(__dirname, 'static', 'js'),
+    library: 'langServer',
+    libraryTarget: 'var',
+  },
+};
+
+module.exports = [www_rbac_config, langserver_config];

@@ -20,11 +20,11 @@ code_artifact = 'obelisk-eda.jar'
 folder_to_copy_summary = '{{folder_to_copy_sum}}'
 
 # path in container where intermediate data is dumped
-data_dump_dir = Path(EDA_HOME).joinpath(*["inputs", folder_to_copy_summary, "preliminary"])
+data_dump_dir = Path(EDA_HOME).joinpath(*["inputs", folder_to_copy_summary, "dataScoreAndImportantFeatures"])
 
 # folders inside data_dump_dir containing table_info and preliminary_summary
-table_info_dump_dir = data_dump_dir.joinpath("table_info")
-preliminary_summary_dump_dir = data_dump_dir.joinpath("preliminary_summary")
+table_score_dump_dir = data_dump_dir.joinpath("table_score")
+imp_features_dump_dir = data_dump_dir.joinpath("important_features")
 
 # file where visualizations will be dumped.
 viz_dump_path = Path(EDA_HOME).joinpath(
@@ -32,7 +32,7 @@ viz_dump_path = Path(EDA_HOME).joinpath(
     {% for output_dir in output_dirs %}
     "{{output_dir}}",
     {% endfor %}
-    "data_info.html"])
+    "table_and_feature_importance.html"])
 
 
 def mkdir_dirs(ds, **kwargs):
@@ -66,47 +66,47 @@ EDADag = DAG(
     default_args=default_args,
     schedule_interval='@once')
 
-EDAPreliminaryCreateDirs = PythonOperator(
-    task_id='EDAPreliminaryCreateLocalDumpDirs',
+EDADataScoreAndFeatureCreateDirs = PythonOperator(
+    task_id='EDADataScoreAndFeatureCreateLocalDumpDirs',
     provide_context=True,
     python_callable=mkdir_dirs,
     dag=EDADag
 )
 
-EDAPreliminaryRemoveDirs = PythonOperator(
-    task_id='EDAPreliminaryRemoveLocalDumpDirs',
+EDADataScoreAndFeatureRemoveDirs = PythonOperator(
+    task_id='EDADataScoreAndFeatureRemoveLocalDumpDirs',
     provide_context=True,
     python_callable=cleanup_dirs,
     dag=EDADag
 )
 
-EDAPreliminaryDataSummary = DagOperator(
-    task_id='EDAPreliminaryDataSummary',
+EDADataScoreAndFeatureImportance = DagOperator(
+    task_id='EDADataScoreAndFeatureImportance',
     run_dag_id='{{eda_dag_id}}',
     dag=EDADag,
     description=''
 )
 
-EDAPreliminaryVisualisation = BashOperator(
-    task_id='EDAPreliminaryVisualisation',
+EDADataScoreAndFeatureVisualisation = BashOperator(
+    task_id='EDADataScoreAndFeatureVisualisation',
     dag=EDADag,
-    description='EDAPreliminaryVisualisation',
+    description='EDADataScoreAndFeatureVisualisation',
     bash_command='python3 {} {} {} {}'.format(
-        Path(EDA_HOME).joinpath(*['codes', 'preliminary_visualisation.py']),
-        table_info_dump_dir,
-        preliminary_summary_dump_dir,
+        Path(EDA_HOME).joinpath(*['codes', 'table_score_important_features_visualizations.py']),
+        table_score_dump_dir,
+        imp_features_dump_dir,
         viz_dump_path)
 )
 
-EDAPreliminaryRemoveDAGs = PythonOperator(
-    task_id='EDAPreliminaryRemoveDAGs',
+EDADataScoreAndFeatureRemoveDAGs = PythonOperator(
+    task_id='EDADataScoreAndFeatureRemoveDAGs',
     provide_context=True,
     python_callable=remove_dags,
     dag=EDADag
 )
 
 # hdfs dfs -get source/path dest/path
-EDAPreliminaryDataSummary.set_upstream(EDAPreliminaryCreateDirs)
-EDAPreliminaryVisualisation.set_upstream(EDAPreliminaryDataSummary)
-EDAPreliminaryRemoveDirs.set_upstream(EDAPreliminaryVisualisation)
-EDAPreliminaryRemoveDAGs.set_upstream(EDAPreliminaryRemoveDirs)
+EDADataScoreAndFeatureImportance.set_upstream(EDADataScoreAndFeatureCreateDirs)
+EDADataScoreAndFeatureVisualisation.set_upstream(EDADataScoreAndFeatureImportance)
+EDADataScoreAndFeatureRemoveDirs.set_upstream(EDADataScoreAndFeatureVisualisation)
+EDADataScoreAndFeatureRemoveDAGs.set_upstream(EDADataScoreAndFeatureRemoveDirs)

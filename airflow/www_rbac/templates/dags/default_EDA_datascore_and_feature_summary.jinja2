@@ -1,0 +1,182 @@
+import os
+import shutil
+
+from datetime import datetime
+from pathlib import Path
+from airflow import DAG
+from airflow.operators import CoutureSparkOperator, HDFSOperator
+from airflow.operators.bash_operator import BashOperator
+from airflow.operators.python_operator import BranchPythonOperator, PythonOperator
+from airflow.settings import EDA_HOME
+
+
+classPath = 'ai.couture.obelisk.eda.MainClass'
+appName = 'EDADataScoreAndDataWithImportantFeatures'
+code_artifact = 'obelisk-eda.jar'
+
+
+# HDFS testing URI
+uri = '{{source.connection_uri}}'
+file_name = uri.split("/")[-1]
+file_folder = file_name.split(".")[0]
+
+folder_to_copy_summary = '{{folder_to_copy_sum}}'
+
+{% if source.source_type == 'local'  %}
+rawDirPath = '/data/eda/raw/inputfiles/'
+if not rawDirPath.endswith('/'):
+    rawDirPath += '/'
+{% else %}
+uripath = uri.split("://")[1].replace(file_name, "")
+rawDirPath = uripath
+{% endif %}
+
+def get_source():
+    if "hdfs://" in uri:
+        source = "CreateOutputHDFSPathIfNotExists"
+    elif '{{source.source_type}}' == 'local':
+        source = 'MakeEdaSourceHDFSDataDir'
+    else:
+        source = "TableScoreAndFeatureImportanceDB"
+    return source
+
+
+source = get_source()
+
+
+def get_hdfs_processed_dir_path():
+    pth = str(Path('/data/eda/processed/outputfiles/').joinpath(*[folder_to_copy_summary, "dataScoreAndImportantFeatures"]))
+
+    if not pth.endswith('/'):
+        pth += '/'
+    return pth
+
+
+HdfsProcessedDirPath = get_hdfs_processed_dir_path()
+
+# local file path is the file path on the webserver, where we want to output
+# keep preliminary data
+
+# This path is the same as data_dump_dir in EDA_preliminary_visualisations
+data_dump_dir = Path(EDA_HOME).joinpath(*['inputs', folder_to_copy_summary, 'dataScoreAndImportantFeatures'])
+
+data_dump_dir_hdfs = Path(EDA_HOME).joinpath(*["inputs", folder_to_copy_summary])
+
+
+default_args = {
+    'owner': '{{username}}',
+    'depends_on_past': False,
+    'start_date': datetime({{now.year}}, {{now.month}}, {{now.day}}),
+    'retries': 0,
+}
+
+EDADag = DAG(
+    '{{dag_id}}',
+    default_args=default_args,
+    schedule_interval=None)
+
+# EDAPreliminaryCreateDirs = PythonOperator(
+#     task_id='CreateDirs',
+#     provide_context=True,
+#     python_callable=mkdir_dirs,
+#     dag=EDADag
+# )
+
+branch_task = BranchPythonOperator(
+    task_id='branching',
+    python_callable=get_source,
+    dag=EDADag,
+)
+
+{% if source.source_type == 'local'  %}
+put_path = rawDirPath
+MakeEdaSourceHDFSDataDir = HDFSOperator(
+    task_id='MakeEdaSourceHDFSDataDir',
+    dag=EDADag,
+    description='',
+    command_arguments=['-mkdir', '-p', put_path]
+)
+CopyEdaSourceToHDFS = HDFSOperator(
+    task_id='CopyEdaSourceToHDFS',
+    dag=EDADag,
+    description='',
+    command_arguments=['-put', '-f', '{{source.connection_uri}}', put_path]
+)
+{% endif %}
+
+CreateOutputHDFSPathIfNotExists = HDFSOperator(
+    task_id='CreateOutputHDFSPathIfNotExists',
+    dag=EDADag,
+    description='',
+    command_arguments=['-mkdir', '-p', str(Path(HdfsProcessedDirPath).parent)]
+)
+
+GetImportantFeaturesFromData = CoutureSparkOperator(
+    task_id='GetImportantFeaturesFromData',
+    method_id = "GetImportantFeaturesFromData",
+    app_name=appName,
+    class_path=classPath,
+    exclude_spark_args=['jars'],
+    code_artifact=code_artifact,
+    input_base_dir_path=str(rawDirPath),
+    output_base_dir_path=str(HdfsProcessedDirPath),
+    input_filenames_dict={"data": str(file_name)},
+    output_filenames_dict={"data_with_important_features": "important_features"},
+    dag=EDADag,
+    description='')
+
+
+# only used with "GeneratePreliminarySummaryDB"
+op_kwargs = {
+    'uri': uri,
+    'input_file_path': str(rawDirPath),
+    'local_output_path': str(data_dump_dir),
+    'output_file_path': str(HdfsProcessedDirPath),
+    'table_name': '{{source.tablename}}'
+}
+
+TableScoreAndFeatureImportanceDB = BashOperator(
+    task_id='TableScoreAndFeatureImportanceDB',
+    depends_on_past=False,
+    bash_command='python3 "{}" "{}" "{}" "{}"'.format(
+        os.path.join(EDA_HOME, *["codes", "table_feature_importance_db.py"]),
+        op_kwargs['uri'], op_kwargs['table_name'],
+        op_kwargs['local_output_path']),
+    dag=EDADag
+)
+
+
+GenerateDataImportanceScore = CoutureSparkOperator(
+    task_id='GenerateDataImportanceScore',
+    method_id = "GenerateDataImportanceScore",
+    app_name=appName,
+    class_path=classPath,
+    code_artifact=code_artifact,
+    exclude_spark_args=['jars'],
+    input_base_dir_path=str(rawDirPath),
+    output_base_dir_path=str(HdfsProcessedDirPath),
+    input_filenames_dict={"data": str(file_name)},
+    output_filenames_dict={"data_importance_score": "table_score"},
+    dag=EDADag,
+    description='')
+
+CopyFilesToLocal = HDFSOperator(
+    task_id='CopySummaryData',
+    dag=EDADag,
+    description='',
+    command_arguments=['-get', str(Path(HdfsProcessedDirPath)), str(data_dump_dir_hdfs)]
+)
+
+# branch_task.set_upstream(EDAPreliminaryCreateDirs)
+{% if source.source_type == 'local' %}
+MakeEdaSourceHDFSDataDir.set_upstream(branch_task)
+CopyEdaSourceToHDFS.set_upstream(MakeEdaSourceHDFSDataDir)
+CreateOutputHDFSPathIfNotExists.set_upstream(CopyEdaSourceToHDFS)
+{% else %}
+CreateOutputHDFSPathIfNotExists.set_upstream(branch_task)
+{% endif %}
+GetImportantFeaturesFromData.set_upstream(CreateOutputHDFSPathIfNotExists)
+GenerateDataImportanceScore.set_upstream(GetImportantFeaturesFromData)
+CopyFilesToLocal.set_upstream(GenerateDataImportanceScore)
+
+TableScoreAndFeatureImportanceDB.set_upstream(branch_task)

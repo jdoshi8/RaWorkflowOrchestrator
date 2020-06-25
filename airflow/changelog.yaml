@@ -1,1 +1,14 @@
+changelog:
+  - version: 2.0.1
+    authors: ['JaiDoshi', 'AnubhavUjjawal', 'AnuAgrawal']
+    newFeatures:
+      - Added experimental support for Feature Importance (L1) EDA.
+      - Added changelog for releases.
+      - Added find & replace in code editor
+      - Added Datasets option in 'Models and Datasets'
+    bugFixes:
+      - Switched the review code panels in the code editor.
+    improvements:
+      - Added manage & create dag in homepage
+      - Renamed 'Trained Models' menu option in Developer to 'Models and Datasets'
 

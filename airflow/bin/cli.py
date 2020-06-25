@@ -72,6 +72,7 @@ from airflow.www_rbac.app import cached_app as cached_app_rbac
 from airflow.www_rbac.app import create_app as create_app_rbac
 from airflow.www_rbac.file_watchers import GitFileSystemWatcher
 from airflow.www_rbac.app import cached_appbuilder
+from airflow.www_rbac.langserver import langserver_ext
 
 from sqlalchemy.orm import exc
 import six
@@ -1593,6 +1594,11 @@ def sync_perm(args): # noqa
     else:
         print('The sync_perm command only works for rbac UI.')
 
+@cli_utils.action_logging
+def langserver(args):
+    logging.info(f'Running langserver for python on PORT {args.port}, PATH {args.path}')
+    langserver_ext.start_langserver(args.port, args.path)
+
 
 class Arg(object):
     def __init__(self, flags=None, help=None, action=None, default=None, nargs=None,
@@ -1997,6 +2003,17 @@ class CLIFactory(object):
             action="store_true",
             help="Open debugger on uncaught exception",
         ),
+        # language server
+        'langserver_port': Arg(
+            ("-p", "--port"),
+            default=conf.get('langserver', 'LANGSERVER_PORT'),
+            type=int,
+            help="The port on which to run the language server"),
+        'langserver_path': Arg(
+            ("-pth", "--path"),
+            default=conf.get('langserver', 'LANGSERVER_PATH'),
+            type=str,
+            help="The path on which to serve the Language Server"),
         # connections
         'list_connections': Arg(
             ('-l', '--list'),
@@ -2285,6 +2302,11 @@ class CLIFactory(object):
             'help': "Watches Git Repositories and push updates to the git repo whenever a changes occurs",
             'args': ('daemon', )
         },
+        {
+            'func': langserver,
+            'help': "Starts the language server for the code-editor",
+            'args': ('langserver_port', 'langserver_path'),
+        }
     )
     subparsers_dict = {sp['func'].__name__: sp for sp in subparsers}
     dag_subparsers = (

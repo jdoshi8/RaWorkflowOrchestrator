@@ -45,21 +45,30 @@
     <table class="table table-bordered table-hover" id="sourceTable">
       <thead>
         <tr class="table-head">
-          <th colspan="9" class="col-md-9">Source</th>
-          <th colspan="3" class="col-md-3">Links</th>
+          <th colspan="6" class="col-md-6">Source</th>
+          <th colspan="6" class="col-md-6">Links</th>
         </tr>
       </thead>
       <tbody>
       <div>
         {% for source in sources %}
         <tr>
-          <td class="couture_table_text" class="text-center" colspan="9" class="col-md-9">
+          <td class="couture_table_text" class="text-center" colspan="6" class="col-md-6">
             {{ source }}
           </td>
-          <td colspan="1" class="col-md-1">
+          <td colspan="2" class="col-md-2">
             <div>
-              <a href="{{ url_for('EDAView.run_view', source=source.id) }}">
-                <i class="fa fa-play fa-lg" data-toggle="tooltip" title="Run EDA on this data source."></i>
+              <a href="{{ url_for('EDAView.run_view', source=source.id, type='L0') }}" data-toggle="tooltip" title="Run Preliminary EDA on this data source.">
+                Preliminary
+                <i class="fa fa-play fa-lg"></i>
+              </a>
+            </div>
+          </td>
+          <td colspan="2" class="col-md-2">
+            <div>
+              <a href="{{ url_for('EDAView.run_view', source=source.id, type='L1') }}" data-toggle="tooltip" title="Run Data Importance EDA on this data source.">
+                Data Importance
+                <i class="fa fa-play fa-lg"></i>
               </a>
             </div>
           </td>

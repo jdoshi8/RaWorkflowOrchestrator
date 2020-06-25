@@ -185,9 +185,10 @@
 <script src="{{ url_for_asset('codemirror/addon/fold/indent-fold.js') }}"></script>
 <script src="{{ url_for_asset('codemirror/addon/selection/active-line.js') }}"></script>
 <script src="{{ url_for_asset('codemirror/keymap/sublime.js') }}"></script>
+<script src="{{ url_for('static', filename='js/language_server.js') }}"></script>
 <script type="text/javascript">
 
-  var codeEditor, diffEditor, snippetEditor, currSnippet;
+  var diffEditor, snippetEditor, currSnippet;
   const theme = 'idea', keymap = 'sublime', indentUnit = 4;
   var editorConfigs = {
     lineNumbers: true,
@@ -204,7 +205,7 @@
 
   function focusCodeEditor(timeout) {
     setTimeout(function () {
-      codeEditor.focus();
+      langServer.codeEditor.focus();
     }, timeout);
   }
 
@@ -212,7 +213,7 @@
     var target = document.getElementById('code-2');
     target.innerHTML = '';
     diffEditor = CodeMirror.MergeView(target, {
-      value: codeEditor.getValue(),
+      value: langServer.codeEditor.getValue(),
       origLeft: document.getElementById('oldCode').value,
       lineNumbers: true,
       mode: 'python',
@@ -226,8 +227,8 @@
     });
     diffEditor.edit.setOption('readOnly', true);
     diffEditor.edit.on('change', function (_cm, change) {
-        codeEditor.setValue(_cm.getValue());
-        codeEditor.refresh();
+        langServer.codeEditor.setValue(_cm.getValue());
+        langServer.codeEditor.refresh();
     });
   }
 
@@ -246,23 +247,23 @@
   // function importUnimportedOperators(cursor) {
   //   var text;
   //   // adds operator to the line `from airflow.operators import <Operator1Name>, <Operator2Name>`
-  //   if (new String(codeEditor.getValue()).match(/^from\sairflow\.operators\simport\s.*$/gm)) {
-  //     text = new String(codeEditor.getValue()).replace(/^from\sairflow\.operators\simport\s.*$/gm, 'from airflow.operators import *');
+  //   if (new String(langServer.codeEditor.getValue()).match(/^from\sairflow\.operators\simport\s.*$/gm)) {
+  //     text = new String(langServer.codeEditor.getValue()).replace(/^from\sairflow\.operators\simport\s.*$/gm, 'from airflow.operators import *');
   //   } else {
-  //     text = 'from airflow.operators import *\n' + codeEditor.getValue() ;
+  //     text = 'from airflow.operators import *\n' + langServer.codeEditor.getValue() ;
   //   }
-  //   codeEditor.setValue(text);
-  //   codeEditor.getDoc().setCursor(cursor);
+  //   langServer.codeEditor.setValue(text);
+  //   langServer.codeEditor.getDoc().setCursor(cursor);
   // }
 
   function replaceTextInEditor(text) {
-    var doc = codeEditor.getDoc();
+    var doc = langServer.codeEditor.getDoc();
     var cursor = doc.getCursor();
     text = '\n' + text + '\n';
     doc.replaceRange(text, cursor);
     // import unimported Operators
     // importUnimportedOperators(cursor);
-    // codeEditor.focus() doesn't work without setTimeout !!
+    // langServer.codeEditor.focus() doesn't work without setTimeout !!
     focusCodeEditor(200);
   }
 
@@ -346,12 +347,12 @@
   }
 
   $(document).ready(function() {
-    var myTextArea = document.getElementById('code');
-    codeEditor = CodeMirror.fromTextArea(myTextArea, editorConfigs);
 
-    codeEditor.execCommand('goDocEnd');
+    langServer.connectToLangServer("{{language_server_url}}", "{{filename}}");
 
-    codeEditor.on('drop', function(cm, event) {
+    langServer.codeEditor.execCommand('goDocEnd');
+
+    langServer.codeEditor.on('drop', function(cm, event) {
       if(event.dataTransfer.getData("codebrick-index")) {
         var coords = cm.coordsChar({
           left: event.x,
@@ -410,7 +411,7 @@
           $('.codeEditorDiv').addClass('col-md-8 col-sm-8');
           $('#reviewCodeAnchor').removeClass('hidden');
           $('#editCodeAnchor').addClass('hidden');
-          codeEditor.refresh();
+          langServer.codeEditor.refresh();
           break;
         default:
           $('.codebricksDiv').removeClass('hidden');
@@ -418,7 +419,7 @@
           $('.codeEditorDiv').addClass('col-md-8 col-sm-8');
           $('#reviewCodeAnchor').removeClass('hidden');
           $('#editCodeAnchor').addClass('hidden');
-          codeEditor.refresh();
+          langServer.codeEditor.refresh();
           break;
       }
     });
@@ -461,7 +462,7 @@
 
   function submitCode() {
     var path = "{{ url_for('AddDagView.editdag', filename=filename, new=new) }}";
-    post(path, { code: codeEditor.getValue(), csrf_token: '{{ csrf_token() }}' });
+    post(path, { code: langServer.codeEditor.getValue(), csrf_token: '{{ csrf_token() }}' });
   }
 
   function snippetExists(title) {
