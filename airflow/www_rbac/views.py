@@ -4334,17 +4334,23 @@ class AddDagView(AirflowBaseView):
             return make_response(('DAG not found', 404))
         if request.method == 'POST':
             code = request.form['code']
-            with open(fullpath, 'w') as code_file:
-                code_file.write(code)
-                flash('Successfully saved !')
-                AirflowBaseView.audit_logging(
-                    "{}.{}".format(self.__class__.__name__, 'editdag'),
-                    filename, request.environ['REMOTE_ADDR'])
-                if new:
-                    _parse_dags(update_DagModel=True)
-                    # TODO Unpause dag here.
-                    # unpause_dag(dag_id)
-            return redirect(url_for('AddDagView.editdag', filename=filename))
+			
+            lock_path = fullpath + '.lock'
+            lock = FileLock(lock_path)
+            lock.timeout = -1
+			
+            with lock:
+                with open(fullpath, 'w') as code_file:
+                    code_file.write(code)
+                    flash('Successfully saved !')
+                    AirflowBaseView.audit_logging(
+                        "{}.{}".format(self.__class__.__name__, 'editdag'),
+                        filename, request.environ['REMOTE_ADDR'])
+                    if new:
+                        _parse_dags(update_DagModel=True)
+                        # TODO Unpause dag here.
+                        # unpause_dag(dag_id)
+                return redirect(url_for('AddDagView.editdag', filename=filename))
         else:
             if new:
                 insert_starter_content = request.args.get('insert_starter_content')
