@@ -39,6 +39,7 @@ from collections import defaultdict
 from datetime import timedelta, datetime
 from urllib.parse import unquote
 from pathlib import Path
+from filelock import FileLock
 
 import six
 from six.moves.urllib.parse import quote
